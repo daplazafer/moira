@@ -1,0 +1,10 @@
+id: carDecision
+start: isCarRunning
+nodes:
+  - id: isCarRunning
+    transitions:
+      - result: YES
+        next: end
+      - result: NO
+        next: end
+  - id: end
