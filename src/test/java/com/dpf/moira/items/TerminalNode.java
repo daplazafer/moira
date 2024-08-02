@@ -1,9 +1,9 @@
-package com.dpf.moira.test;
+package com.dpf.moira.items;
 
 import com.dpf.moira.Decision;
 import com.dpf.moira.Node;
 
-import static com.dpf.moira.test.TerminalNode.Result;
+import static com.dpf.moira.items.TerminalNode.Result;
 
 @Decision(id = "end", description = "Finishing execution")
 public class TerminalNode extends Node<CarContext, Result> {
