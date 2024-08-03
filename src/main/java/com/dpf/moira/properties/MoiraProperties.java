@@ -2,16 +2,16 @@ package com.dpf.moira.properties;
 
 public class MoiraProperties {
 
-    private String yamlFilesPath = "dop";
+    private String workflowFilesPath = "dop";
 
     private boolean hotReloadMode = false;
 
-    public String getYamlFilesPath() {
-        return yamlFilesPath;
+    public String getWorkflowFilesPath() {
+        return workflowFilesPath;
     }
 
-    public void setYamlFilesPath(String yamlFilesPath) {
-        this.yamlFilesPath = yamlFilesPath;
+    public void setWorkflowFilesPath(String workflowFilesPath) {
+        this.workflowFilesPath = workflowFilesPath;
     }
 
     public boolean isHotReloadMode() {

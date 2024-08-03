@@ -1,17 +1,15 @@
 package com.dpf.moira;
 
-import com.dpf.moira.entity.Context;
-
 import java.lang.reflect.ParameterizedType;
 
-public abstract class Node<C, E extends Enum<E>> {
+public abstract class Node<S, E extends Enum<E>> {
 
-    abstract public E execute(Context<C> context);
+    abstract public E execute(Scenario<S> scenario);
 
-    final Class<C> getContextClass() {
+    final Class<S> getScenarioClass() {
         @SuppressWarnings("unchecked")
-        Class<C> contextClass = (Class<C>) ((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[0];
-        return contextClass;
+        Class<S> scenarioClass = (Class<S>) ((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[0];
+        return scenarioClass;
     }
 
 }

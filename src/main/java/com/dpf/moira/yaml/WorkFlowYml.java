@@ -3,16 +3,16 @@ package com.dpf.moira.yaml;
 import java.util.Collections;
 import java.util.List;
 
-public class DecisionTreeYml {
+public class WorkFlowYml {
 
     private String id;
     private String start;
     private List<NodeYml> nodes;
 
-    public DecisionTreeYml() {
+    public WorkFlowYml() {
     }
 
-    public DecisionTreeYml(String id, String start, List<NodeYml> nodes) {
+    public WorkFlowYml(String id, String start, List<NodeYml> nodes) {
         this.id = id;
         this.start = start;
         this.nodes = nodes;

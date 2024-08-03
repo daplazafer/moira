@@ -13,21 +13,20 @@ class NodeRegistry {
         Map<NodeId, Map<Class<?>, Node<?, ?>>> nodeMap = new HashMap<>();
         for (Node<?, ?> node : nodes) {
             var decision = node.getClass().getAnnotation(Decision.class);
-            if (decision != null) {
-                Map<Class<?>, Node<?, ?>> contextMap = nodeMap.computeIfAbsent(new NodeId(decision.id()), k -> new HashMap<>());
-                contextMap.put(node.getContextClass(), node);
-            }
+            var nodeId = decision != null ? decision.id() : node.getClass().getSimpleName();
+            Map<Class<?>, Node<?, ?>> scenarioMap = nodeMap.computeIfAbsent(new NodeId(nodeId), k -> new HashMap<>());
+            scenarioMap.put(node.getScenarioClass(), node);
         }
         nodeRegistryMap = Collections.unmodifiableMap(nodeMap);
     }
 
     @SuppressWarnings("unchecked")
-    <C> Optional<Node<C, ?>> get(NodeId nodeId, Class<C> ctxClass) {
-        var contextMap = nodeRegistryMap.get(nodeId);
-        if (contextMap != null) {
-            var node = contextMap.get(ctxClass);
-            if (node != null && ctxClass.isAssignableFrom(node.getContextClass())) {
-                return Optional.of((Node<C, ?>) node);
+    <S> Optional<Node<S, ?>> get(NodeId nodeId, Class<S> scenarioClass) {
+        var scenarioMap = nodeRegistryMap.get(nodeId);
+        if (scenarioMap != null) {
+            var node = scenarioMap.get(scenarioClass);
+            if (node != null && scenarioClass.isAssignableFrom(node.getScenarioClass())) {
+                return Optional.of((Node<S, ?>) node);
             }
         }
         return Optional.empty();

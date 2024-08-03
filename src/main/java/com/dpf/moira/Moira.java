@@ -1,90 +1,109 @@
 package com.dpf.moira;
 
-import com.dpf.moira.entity.*;
+import com.dpf.moira.entity.DecisionNodeResult;
+import com.dpf.moira.entity.NodeId;
+import com.dpf.moira.entity.Workflow;
+import com.dpf.moira.entity.WorkflowId;
+import com.dpf.moira.properties.MoiraProperties;
+import com.dpf.moira.properties.PropertiesLoader;
+import com.dpf.moira.yaml.mapper.WorkFlowYmlMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
+import java.io.File;
 import java.util.Collection;
 import java.util.UUID;
 
 /**
- * Manages and executes decision trees using a registry of decision trees and nodes.
+ * Executes workflows.
  */
-public class Moira {
+public final class Moira {
 
     private static final Logger logger = LoggerFactory.getLogger(Moira.class);
 
-    private DecisionTreeRegistry decisionTreeRegistry;
+    private static final String PROPERTIES_FILE = "dop.properties";
+
+    private final MoiraProperties properties;
+
+    private WorkFlowRegistry workFlowRegistry;
 
     private final NodeRegistry nodeRegistry;
+
+    private final ResourceLoader resourceLoader;
 
     private final boolean isHotReload;
 
     public Moira(Collection<Node<?, ?>> nodes) {
 
-        var config = MoiraConfig.getInstance();
+        this.properties = new PropertiesLoader(PROPERTIES_FILE).loadProperties(MoiraProperties.class);
+        this.resourceLoader = new ResourceLoader();
+        this.nodeRegistry = new NodeRegistry(nodes);
+        this.workFlowRegistry = getWorkFlowRegistry();
+        this.isHotReload = properties.isHotReloadMode();
+    }
 
-        this.decisionTreeRegistry = config.decisionTreeRegistry();
-        this.nodeRegistry = config.nodeRegistry(nodes);
-        this.isHotReload = config.getProperties().isHotReloadMode();
+    private WorkFlowRegistry getWorkFlowRegistry() {
+        var locationPattern = this.properties.getWorkflowFilesPath() + File.separator + "*.yml";
+        return new WorkFlowRegistry(resourceLoader.loadWorkflows(locationPattern).stream()
+                .map(WorkFlowYmlMapper::toEntity)
+                .toList());
     }
 
     /**
-     * Starts the execution of the decision tree asynchronously.
+     * Starts the execution of the workflow asynchronously.
      *
-     * @param decisionTreeId the ID of the decision tree to execute
-     * @param context        the context to be passed to the decision nodes
+     * @param workflow the ID of the workflow to execute
+     * @param scenario the scenario to be passed to the decision nodes
      */
-    public <C> void decideAsync(String decisionTreeId, C context) {
-        executeDecisionTree(decisionTreeId, context)
+    public <S> void decideAsync(String workflow, S scenario) {
+        executeWorkflow(workflow, scenario)
                 .subscribeOn(Schedulers.boundedElastic())
-                .doOnError(error -> logger.error("Error occurred while executing decision tree", error))
+                .doOnError(error -> logger.error("Error occurred while executing workflow {}", workflow, error))
                 .subscribe();
     }
 
     /**
-     * Starts the execution of the decision tree and returns a Mono indicating completion.
+     * Starts the execution of the workflow and returns a Mono indicating completion.
      *
-     * @param decisionTreeId the ID of the decision tree to execute
-     * @param context        the context to be passed to the decision nodes
-     * @return a Mono that completes when the execution of the decision tree is finished
+     * @param workflow the ID of the workflow to execute
+     * @param scenario the scenario to be passed to the decision nodes
+     * @return a Mono that completes when the execution of the workflow is finished
      */
-    public <C> Mono<Void> decide(String decisionTreeId, C context) {
-        return executeDecisionTree(decisionTreeId, context);
+    public <S> Mono<Void> decide(String workflow, S scenario) {
+        return executeWorkflow(workflow, scenario);
     }
 
     /**
-     * Executes the decision tree starting with the specified ID and context.
+     * Executes the workflow starting with the specified ID and scenario.
      *
-     * @param decisionTreeId the ID of the decision tree to execute
-     * @param context        the context to be passed to the decision nodes
-     * @return a Mono that completes when the execution of the decision tree is finished
+     * @param workflow the ID of the workflow to execute
+     * @param scenario the scenario to be passed to the decision nodes
+     * @return a Mono that completes when the execution of the workflow is finished
      */
-    private <C> Mono<Void> executeDecisionTree(String decisionTreeId, C context) {
-        if (decisionTreeId == null) {
-            throw new IllegalArgumentException("decisionTreeId cannot be null");
+    private <C> Mono<Void> executeWorkflow(String workflow, C scenario) {
+        if (workflow == null) {
+            throw new IllegalArgumentException("workflow cannot be null");
         }
-        if (context == null) {
-            throw new IllegalArgumentException("context cannot be null");
+        if (scenario == null) {
+            throw new IllegalArgumentException("scenario cannot be null");
         }
         if (isHotReload) {
-            var config = MoiraConfig.getInstance();
-            this.decisionTreeRegistry = config.decisionTreeRegistry();
+            this.workFlowRegistry = this.getWorkFlowRegistry();
         }
 
-        var decisionTree = decisionTreeRegistry.get(new DecisionTreeId(decisionTreeId))
+        var decisionTree = workFlowRegistry.get(new WorkflowId(workflow))
                 .orElseThrow(() -> new IllegalArgumentException(
-                        String.format("Decision tree not found: %s with context type: %s",
-                                decisionTreeId,
-                                context.getClass().getName())
+                        String.format("Workflow not found: %s with scenario: %s",
+                                workflow,
+                                scenario.getClass().getName())
                 ));
 
         var executionId = generateExecutionId();
 
-        logger.debug("[{}] Starting execution of {}", executionId, decisionTreeId);
-        return executeNode(decisionTree.start(), decisionTree, new Context<>(executionId, context));
+        logger.debug("[{}] Starting execution of {}", executionId, workflow);
+        return executeNode(decisionTree.start(), decisionTree, new Scenario<>(executionId, scenario));
     }
 
     private static String generateExecutionId() {
@@ -92,50 +111,54 @@ public class Moira {
     }
 
     @SuppressWarnings("unchecked")
-    private <C> Mono<Void> executeNode(NodeId nodeId, DecisionTree decisionTree, Context<C> context) {
+    private <S> Mono<Void> executeNode(NodeId nodeId, Workflow workFlow, Scenario<S> scenario) {
         return Mono.defer(() -> {
-            Node<C, ?> node = (Node<C, ?>) nodeRegistry.get(nodeId, context.get().getClass())
+            Node<S, ?> node = (Node<S, ?>) nodeRegistry.get(nodeId, scenario.get().getClass())
                     .orElseThrow(() -> new IllegalArgumentException(
-                            String.format("Node not found: %s for context type: %s",
+                            String.format("Node not found: %s for scenario: %s",
                                     nodeId.value(),
-                                    context.getClass().getName())));
+                                    scenario.getClass().getName())));
 
             var nodeIdValue = this.getNodeId(node);
             var nodeDescription = this.getNodeDescription(node);
 
-            logger.debug("[{}] Executing <{}> ({}) with context: {}", context.executionId(), nodeIdValue, nodeDescription, context.get());
+            logger.debug("[{}] Executing <{}> ({}) with scenario: {}", scenario.getExecutionId(), nodeIdValue, nodeDescription, scenario.get());
 
-            var result = node.execute(context);
+            var result = node.execute(scenario);
 
-            var nodeTransitions = decisionTree.transitionsByNode().get(nodeId).transitions();
+            var nodeTransitions = workFlow.transitionsByNode().get(nodeId).transitions();
             if (nodeTransitions.isEmpty()) {
-                logger.debug("[{}] <{}> has ended execution successfully with context: {}", context.executionId(), nodeIdValue, context.get());
+                logger.debug("[{}] <{}> has ended execution successfully with scenario: {}", scenario.getExecutionId(), nodeIdValue, scenario.get());
                 return Mono.empty();
             }
 
-            logger.debug("[{}] <{}> decided result: {}", context.executionId(), nodeIdValue, result);
+            logger.debug("[{}] <{}> decided result: {}", scenario.getExecutionId(), nodeIdValue, result);
 
             var nextNodeId = nodeTransitions.get(new DecisionNodeResult(result.name()));
             if (nextNodeId == null) {
-                logger.error("[{}] No transition found for result: {}. Ending execution with error.", context.executionId(), result);
-                throw new RuntimeException(String.format("No transition found for result %s in %s during execution %s", result, nodeIdValue, context.executionId()));
+                logger.error("[{}] No transition found for result: {}. Ending execution with error.", scenario.getExecutionId(), result);
+                throw new RuntimeException(String.format("No transition found for result %s in %s during execution %s", result, nodeIdValue, scenario.getExecutionId()));
             }
 
-            logger.debug("[{}] Transitioning to next node: <{}>", context.executionId(), nextNodeId.value());
-            return executeNode(nextNodeId, decisionTree, context);
+            logger.debug("[{}] Transitioning to next node: <{}>", scenario.getExecutionId(), nextNodeId.value());
+            return executeNode(nextNodeId, workFlow, scenario);
         });
     }
 
     private String getNodeId(Node<?, ?> node) {
         var nodeClass = node.getClass();
         var decision = nodeClass.getAnnotation(Decision.class);
-        return (decision != null) ? decision.id() : nodeClass.getSimpleName();
+        return (decision != null)
+                ? decision.id()
+                : nodeClass.getSimpleName();
     }
 
     private String getNodeDescription(Node<?, ?> node) {
         var nodeClass = node.getClass();
         var decision = nodeClass.getAnnotation(Decision.class);
-        return (decision != null) ? decision.description() : nodeClass.getSimpleName();
+        return (decision != null && !decision.description().isBlank())
+                ? decision.description()
+                : getNodeId(node);
     }
 
 }
