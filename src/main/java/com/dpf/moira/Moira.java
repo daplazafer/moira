@@ -11,13 +11,12 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
-import java.util.Map;
+import java.util.Collection;
 import java.util.UUID;
 
 /**
  * Manages and executes decision trees using a registry of decision trees and nodes.
  */
-@Component
 public class Moira {
 
     private static final Logger logger = LoggerFactory.getLogger(Moira.class);
@@ -25,11 +24,13 @@ public class Moira {
     private final DecisionTreeRegistry decisionTreeRegistry;
     private final NodeRegistry nodeRegistry;
 
-    @SuppressWarnings("ClassEscapesDefinedScope")
-    @Autowired
-    public Moira(DecisionTreeRegistry decisionTreeRegistry, NodeRegistry nodeRegistry) {
-        this.decisionTreeRegistry = decisionTreeRegistry;
-        this.nodeRegistry = nodeRegistry;
+
+    public Moira(Collection<Node<?, ?>> nodes) {
+
+        var config = MoiraConfig.getInstance();
+
+        this.decisionTreeRegistry = config.decisionTreeRegistry();
+        this.nodeRegistry = config.nodeRegistry(nodes);
     }
 
     /**
@@ -105,7 +106,7 @@ public class Moira {
             var result = node.decide(context);
 
             var nodeTransitions = decisionTree.transitionsByNode().get(nodeId).transitions();
-            if(nodeTransitions.isEmpty()){
+            if (nodeTransitions.isEmpty()) {
                 logger.debug("[{}] <{}> has ended execution successfully with context: {}", executionId, nodeIdString, context);
                 return Mono.empty();
             }

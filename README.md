@@ -12,7 +12,7 @@ Moira is a library for managing and executing decision trees reactively in Java 
 ## Requirements
 
 - **Java**: 17 or higher
-- **Spring Framework**: 5.3.x or 6.x
+- **Spring Framework**: 6.x
 - **Maven** or **Gradle** for project build
 
 ## Installation
@@ -23,9 +23,9 @@ Add the following dependency to your `pom.xml`:
 
 ```xml
 <dependency>
-    <groupId>com.dpf.moira</groupId>
+    <groupId>com.github.daplazafer</groupId>
     <artifactId>moira</artifactId>
-    <version>0.1.0</version>
+    <version>0.1.1</version>
 </dependency>
 ```
 
@@ -35,7 +35,7 @@ Add the following line to your build.gradle:
 
 ```groovy
 dependencies {
-    implementation 'com.dpf.moira:moira-library:1.0.0'
+    implementation 'com.dpf.moira:moira:0.1.1'
 }
 ```
 
