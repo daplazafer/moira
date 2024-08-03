@@ -1,11 +1,6 @@
 package com.dpf.moira;
 
-import com.dpf.moira.entity.DecisionNodeResult;
-import com.dpf.moira.entity.DecisionTree;
-import com.dpf.moira.entity.DecisionTreeId;
-import com.dpf.moira.entity.NodeId;
-import com.dpf.moira.properties.MoiraProperties;
-import com.dpf.moira.properties.PropertiesLoader;
+import com.dpf.moira.entity.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Mono;
@@ -21,18 +16,19 @@ public class Moira {
 
     private static final Logger logger = LoggerFactory.getLogger(Moira.class);
 
-    private static final String PROPERTIES_FILE = "dop.properties";
+    private DecisionTreeRegistry decisionTreeRegistry;
 
-    private final DecisionTreeRegistry decisionTreeRegistry;
     private final NodeRegistry nodeRegistry;
+
+    private final boolean isHotReload;
 
     public Moira(Collection<Node<?, ?>> nodes) {
 
         var config = MoiraConfig.getInstance();
-        var properties = new PropertiesLoader(PROPERTIES_FILE).loadProperties(MoiraProperties.class);
 
-        this.decisionTreeRegistry = config.decisionTreeRegistry(properties.getYamlFilesPath());
+        this.decisionTreeRegistry = config.decisionTreeRegistry();
         this.nodeRegistry = config.nodeRegistry(nodes);
+        this.isHotReload = config.getProperties().isHotReloadMode();
     }
 
     /**
@@ -73,6 +69,10 @@ public class Moira {
         if (context == null) {
             throw new IllegalArgumentException("context cannot be null");
         }
+        if(isHotReload){
+            var config = MoiraConfig.getInstance();
+            this.decisionTreeRegistry = config.decisionTreeRegistry();
+        }
 
         DecisionTree decisionTree = decisionTreeRegistry.get(new DecisionTreeId(decisionTreeId))
                 .orElseThrow(() -> new IllegalArgumentException(
@@ -84,7 +84,7 @@ public class Moira {
         var executionId = generateExecutionId();
 
         logger.debug("[{}] Starting execution of {}", executionId, decisionTreeId);
-        return executeNode(decisionTree.start(), decisionTree, context, executionId);
+        return executeNode(decisionTree.start(), decisionTree, new Context<>(executionId, context));
     }
 
     private static String generateExecutionId() {
@@ -92,9 +92,9 @@ public class Moira {
     }
 
     @SuppressWarnings("unchecked")
-    private <C> Mono<Void> executeNode(NodeId nodeId, DecisionTree decisionTree, C context, String executionId) {
+    private <C> Mono<Void> executeNode(NodeId nodeId, DecisionTree decisionTree, Context<C> context) {
         return Mono.defer(() -> {
-            Node<C, ?> node = (Node<C, ?>) nodeRegistry.get(nodeId, context.getClass())
+            Node<C, ?> node = (Node<C, ?>) nodeRegistry.get(nodeId, context.get().getClass())
                     .orElseThrow(() -> new IllegalArgumentException(
                             String.format("Node not found: %s for context type: %s",
                                     nodeId.value(),
@@ -103,26 +103,26 @@ public class Moira {
             var nodeIdValue = this.getNodeId(node);
             var nodeDescription = this.getNodeDescription(node);
 
-            logger.debug("[{}] Executing <{}> ({}) with context: {}", executionId, nodeIdValue, nodeDescription, context);
+            logger.debug("[{}] Executing <{}> ({}) with context: {}", context.executionId(), nodeIdValue, nodeDescription, context.get());
 
             var result = node.execute(context);
 
             var nodeTransitions = decisionTree.transitionsByNode().get(nodeId).transitions();
             if (nodeTransitions.isEmpty()) {
-                logger.debug("[{}] <{}> has ended execution successfully with context: {}", executionId, nodeIdValue, context);
+                logger.debug("[{}] <{}> has ended execution successfully with context: {}", context.executionId(), nodeIdValue, context.get());
                 return Mono.empty();
             }
 
-            logger.debug("[{}] <{}> decided result: {}", executionId, nodeIdValue, result);
+            logger.debug("[{}] <{}> decided result: {}", context.executionId(), nodeIdValue, result);
 
             var nextNodeId = nodeTransitions.get(new DecisionNodeResult(result.name()));
             if (nextNodeId == null) {
-                logger.error("[{}] No transition found for result: {}. Ending execution with error.", executionId, result);
-                throw new RuntimeException(String.format("No transition found for result %s in %s during execution %s", result, nodeIdValue, executionId));
+                logger.error("[{}] No transition found for result: {}. Ending execution with error.", context.executionId(), result);
+                throw new RuntimeException(String.format("No transition found for result %s in %s during execution %s", result, nodeIdValue, context.executionId()));
             }
 
-            logger.debug("[{}] Transitioning to next node: <{}>", executionId, nextNodeId.value());
-            return executeNode(nextNodeId, decisionTree, context, executionId);
+            logger.debug("[{}] Transitioning to next node: <{}>", context.executionId(), nextNodeId.value());
+            return executeNode(nextNodeId, decisionTree, context);
         });
     }
 

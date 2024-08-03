@@ -1,6 +1,12 @@
 package com.dpf.moira;
 
-import com.dpf.moira.entity.*;
+import com.dpf.moira.entity.DecisionNodeResult;
+import com.dpf.moira.entity.DecisionTree;
+import com.dpf.moira.entity.DecisionTreeId;
+import com.dpf.moira.entity.NodeId;
+import com.dpf.moira.entity.Transitions;
+import com.dpf.moira.properties.MoiraProperties;
+import com.dpf.moira.properties.PropertiesLoader;
 import com.dpf.moira.yaml.DecisionTreeYml;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,9 +27,14 @@ class MoiraConfig {
 
     private static final Logger logger = LoggerFactory.getLogger(MoiraConfig.class);
 
+    private static final String PROPERTIES_FILE = "dop.properties";
+
     private static MoiraConfig INSTANCE;
 
+    private final MoiraProperties properties;
+
     private MoiraConfig() {
+        this.properties = new PropertiesLoader(PROPERTIES_FILE).loadProperties(MoiraProperties.class);
     }
 
     public static MoiraConfig getInstance() {
@@ -33,17 +44,21 @@ class MoiraConfig {
         return INSTANCE;
     }
 
+    MoiraProperties getProperties(){
+        return this.properties;
+    }
+
     NodeRegistry nodeRegistry(Collection<Node<?, ?>> nodes) {
         return new NodeRegistry(nodes);
     }
 
-    DecisionTreeRegistry decisionTreeRegistry(String yamlFilesPath) {
+    DecisionTreeRegistry decisionTreeRegistry() {
 
         List<DecisionTreeYml> decisionTrees = new ArrayList<>();
 
         ResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
 
-        String locationPattern = "classpath:" + yamlFilesPath + "/*.yml";
+        String locationPattern = "classpath:" + this.properties.getYamlFilesPath() + "/*.yml";
 
         Yaml yaml = new Yaml(new LoaderOptions());
 
