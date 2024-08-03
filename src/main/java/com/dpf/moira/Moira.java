@@ -4,10 +4,10 @@ import com.dpf.moira.entity.DecisionNodeResult;
 import com.dpf.moira.entity.DecisionTree;
 import com.dpf.moira.entity.DecisionTreeId;
 import com.dpf.moira.entity.NodeId;
+import com.dpf.moira.properties.MoiraProperties;
+import com.dpf.moira.properties.PropertiesLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
@@ -21,15 +21,17 @@ public class Moira {
 
     private static final Logger logger = LoggerFactory.getLogger(Moira.class);
 
+    private static final String PROPERTIES_FILE = "dop.properties";
+
     private final DecisionTreeRegistry decisionTreeRegistry;
     private final NodeRegistry nodeRegistry;
-
 
     public Moira(Collection<Node<?, ?>> nodes) {
 
         var config = MoiraConfig.getInstance();
+        var properties = new PropertiesLoader(PROPERTIES_FILE).loadProperties(MoiraProperties.class);
 
-        this.decisionTreeRegistry = config.decisionTreeRegistry();
+        this.decisionTreeRegistry = config.decisionTreeRegistry(properties.getYamlFilesPath());
         this.nodeRegistry = config.nodeRegistry(nodes);
     }
 
@@ -98,25 +100,25 @@ public class Moira {
                                     nodeId.value(),
                                     context.getClass().getName())));
 
-            var nodeIdString = nodeId.value();
-            var nodeDescription = getNodeDescription(node.getClass());
+            var nodeIdValue = this.getNodeId(node);
+            var nodeDescription = this.getNodeDescription(node);
 
-            logger.debug("[{}] Executing <{}> ({}) with context: {}", executionId, nodeIdString, nodeDescription, context);
+            logger.debug("[{}] Executing <{}> ({}) with context: {}", executionId, nodeIdValue, nodeDescription, context);
 
-            var result = node.decide(context);
+            var result = node.execute(context);
 
             var nodeTransitions = decisionTree.transitionsByNode().get(nodeId).transitions();
             if (nodeTransitions.isEmpty()) {
-                logger.debug("[{}] <{}> has ended execution successfully with context: {}", executionId, nodeIdString, context);
+                logger.debug("[{}] <{}> has ended execution successfully with context: {}", executionId, nodeIdValue, context);
                 return Mono.empty();
             }
 
-            logger.debug("[{}] <{}> decided result: {}", executionId, nodeIdString, result);
+            logger.debug("[{}] <{}> decided result: {}", executionId, nodeIdValue, result);
 
             var nextNodeId = nodeTransitions.get(new DecisionNodeResult(result.name()));
             if (nextNodeId == null) {
                 logger.error("[{}] No transition found for result: {}. Ending execution with error.", executionId, result);
-                throw new RuntimeException(String.format("No transition found for result %s in %s during execution %s", result, nodeIdString, executionId));
+                throw new RuntimeException(String.format("No transition found for result %s in %s during execution %s", result, nodeIdValue, executionId));
             }
 
             logger.debug("[{}] Transitioning to next node: <{}>", executionId, nextNodeId.value());
@@ -124,7 +126,14 @@ public class Moira {
         });
     }
 
-    private String getNodeDescription(Class<?> nodeClass) {
+    private String getNodeId(Node<?, ?> node) {
+        var nodeClass = node.getClass();
+        var decision = nodeClass.getAnnotation(Decision.class);
+        return (decision != null) ? decision.id() : nodeClass.getSimpleName();
+    }
+
+    private String getNodeDescription(Node<?, ?> node) {
+        var nodeClass = node.getClass();
         var decision = nodeClass.getAnnotation(Decision.class);
         return (decision != null) ? decision.description() : nodeClass.getSimpleName();
     }

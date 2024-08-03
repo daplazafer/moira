@@ -4,7 +4,6 @@ import com.dpf.moira.entity.*;
 import com.dpf.moira.yaml.DecisionTreeYml;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.core.io.support.ResourcePatternResolver;
@@ -34,16 +33,11 @@ class MoiraConfig {
         return INSTANCE;
     }
 
-    @Value("${dop.location:dop}")
-    private String yamlFilesPath;
-
-
     NodeRegistry nodeRegistry(Collection<Node<?, ?>> nodes) {
         return new NodeRegistry(nodes);
     }
 
-
-    DecisionTreeRegistry decisionTreeRegistry() {
+    DecisionTreeRegistry decisionTreeRegistry(String yamlFilesPath) {
 
         List<DecisionTreeYml> decisionTrees = new ArrayList<>();
 

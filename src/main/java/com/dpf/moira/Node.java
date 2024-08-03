@@ -4,7 +4,7 @@ import java.lang.reflect.ParameterizedType;
 
 public abstract class Node<C, E extends Enum<E>> {
 
-    abstract public E decide(C context);
+    abstract public E execute(C context);
 
     final Class<C> getContextClass() {
         @SuppressWarnings("unchecked")

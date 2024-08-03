@@ -11,7 +11,7 @@ import java.lang.annotation.Target;
 @Component
 public @interface Decision {
     
-    String id();
+    String id() default "";
     
     String description() default "";
     
