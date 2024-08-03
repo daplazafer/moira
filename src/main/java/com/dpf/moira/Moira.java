@@ -22,7 +22,7 @@ public final class Moira {
 
     private static final Logger logger = LoggerFactory.getLogger(Moira.class);
 
-    private static final String PROPERTIES_FILE = "dop.properties";
+    private static final String PROPERTIES_FILE = "moira.properties";
 
     private final MoiraProperties properties;
 

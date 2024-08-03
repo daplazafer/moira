@@ -2,7 +2,7 @@ package com.dpf.moira.properties;
 
 public class MoiraProperties {
 
-    private String workflowFilesPath = "dop";
+    private String workflowFilesPath = "workflows";
 
     private boolean hotReloadMode = false;
 

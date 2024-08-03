@@ -23,7 +23,7 @@ class ResourceLoader {
     private final Map<String, String> fileHashes;
     private final Map<String, WorkFlowYml> cache;
 
-    public ResourceLoader() {
+    ResourceLoader() {
         this.fileHashes = new HashMap<>();
         this.cache = new HashMap<>();
     }
