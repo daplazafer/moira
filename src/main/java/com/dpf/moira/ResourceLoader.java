@@ -2,11 +2,14 @@ package com.dpf.moira;
 
 import com.dpf.moira.yaml.WorkFlowYml;
 import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.commons.io.FileUtils;
 import org.yaml.snakeyaml.Yaml;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -15,10 +18,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class ResourceLoader {
+class ResourceLoader {
 
     private final Map<String, String> fileHashes;
-
     private final Map<String, WorkFlowYml> cache;
 
     public ResourceLoader() {
@@ -26,38 +28,38 @@ public class ResourceLoader {
         this.cache = new HashMap<>();
     }
 
-    public List<WorkFlowYml> loadWorkflows(String locationPattern) {
+    List<WorkFlowYml> loadWorkflows(String location) {
+
         List<WorkFlowYml> workflows = new ArrayList<>();
 
         try {
-            var resourceURL = getClass().getClassLoader().getResource(locationPattern);
+            URL resourceURL = getClass().getClassLoader().getResource(location);
             if (resourceURL != null) {
-                var resourceURI = resourceURL.toURI();
-                var path = Paths.get(resourceURI);
+                URI resourceURI = resourceURL.toURI();
+                Path path = Paths.get(resourceURI);
 
-                try (var stream = Files.walk(path)) {
-                    stream.filter(Files::isRegularFile)
-                            .forEach(filePath -> {
-                                try {
-                                    if (hasFileChanged(filePath)) {
-                                        try (InputStream inputStream = Files.newInputStream(filePath)) {
-                                            var workflowYml = readWorkflowYml(inputStream);
-                                            fileHashes.put(filePath.toString(), computeFileHash(filePath));
-                                            cache.put(filePath.toString(), workflowYml);
-                                            workflows.add(workflowYml);
-                                        } catch (IOException e) {
-                                            System.err.println("Failed to read YAML file: " + filePath + " " + e.getMessage());
-                                        }
-                                    } else {
-                                        workflows.add(cache.get(filePath.toString()));
+                FileUtils.listFiles(path.toFile(), new String[]{"yml"}, true)
+                        .forEach(file -> {
+                            try {
+                                Path filePath = file.toPath();
+                                if (hasFileChanged(filePath)) {
+                                    try (InputStream inputStream = Files.newInputStream(filePath)) {
+                                        WorkFlowYml workflowYml = readWorkflowYml(inputStream);
+                                        fileHashes.put(filePath.toString(), computeFileHash(filePath));
+                                        cache.put(filePath.toString(), workflowYml);
+                                        workflows.add(workflowYml);
+                                    } catch (IOException e) {
+                                        System.err.println("Failed to read YAML file: " + filePath + " " + e.getMessage());
                                     }
-                                } catch (IOException e) {
-                                    System.err.println("Failed to check file change: " + filePath + " " + e.getMessage());
+                                } else {
+                                    workflows.add(cache.get(filePath.toString()));
                                 }
-                            });
-                }
+                            } catch (IOException e) {
+                                System.err.println("Failed to check file change: " + file + " " + e.getMessage());
+                            }
+                        });
             }
-        } catch (IOException | URISyntaxException e) {
+        } catch (URISyntaxException e) {
             System.err.println("Failed to load YAML resources: " + e.getMessage());
         }
 
@@ -65,12 +67,12 @@ public class ResourceLoader {
     }
 
     private WorkFlowYml readWorkflowYml(InputStream inputStream) {
-        var yaml = new Yaml();
+        Yaml yaml = new Yaml();
         return yaml.loadAs(inputStream, WorkFlowYml.class);
     }
 
     private boolean hasFileChanged(Path filePath) throws IOException {
-        var currentHash = computeFileHash(filePath);
+        String currentHash = computeFileHash(filePath);
         return !currentHash.equals(fileHashes.get(filePath.toString()));
     }
 

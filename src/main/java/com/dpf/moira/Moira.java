@@ -12,7 +12,6 @@ import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
-import java.io.File;
 import java.util.Collection;
 import java.util.UUID;
 
@@ -45,10 +44,11 @@ public final class Moira {
     }
 
     private WorkFlowRegistry getWorkFlowRegistry() {
-        var locationPattern = this.properties.getWorkflowFilesPath() + File.separator + "*.yml";
-        return new WorkFlowRegistry(resourceLoader.loadWorkflows(locationPattern).stream()
+        var location = this.properties.getWorkflowFilesPath();
+        var workflows = resourceLoader.loadWorkflows(location).stream()
                 .map(WorkFlowYmlMapper::toEntity)
-                .toList());
+                .toList();
+        return new WorkFlowRegistry(workflows);
     }
 
     /**
@@ -95,7 +95,7 @@ public final class Moira {
 
         var decisionTree = workFlowRegistry.get(new WorkflowId(workflow))
                 .orElseThrow(() -> new IllegalArgumentException(
-                        String.format("Workflow not found: %s with scenario: %s",
+                        String.format("Workflow '%s' not found for scenario: %s",
                                 workflow,
                                 scenario.getClass().getName())
                 ));

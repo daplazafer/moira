@@ -3,11 +3,11 @@ package com.dpf.moira;
 public class Scenario<S> {
 
     private final String executionId;
-    private final S scenario;
+    private final S value;
 
-    public Scenario(String executionId, S scenario) {
+    Scenario(String executionId, S value) {
         this.executionId = executionId;
-        this.scenario = scenario;
+        this.value = value;
     }
 
     public String getExecutionId() {
@@ -15,7 +15,7 @@ public class Scenario<S> {
     }
 
     public S get() {
-        return scenario;
+        return value;
     }
 
 }
