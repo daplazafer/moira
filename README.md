@@ -71,7 +71,7 @@ public class Application {
         Moira moira = new Moira(decisionTreeRegistry, nodeRegistry);
         CarContext context = new CarContext(120);
 
-        moira.runAsync("carDecision", context);
+        moira.decideAsync("carDecision", context);
     }
 }
 ```

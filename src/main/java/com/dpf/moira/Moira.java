@@ -37,7 +37,7 @@ public class Moira {
      * @param decisionTreeId the ID of the decision tree to execute
      * @param context        the context to be passed to the decision nodes
      */
-    public <C> void runAsync(String decisionTreeId, C context) {
+    public <C> void decideAsync(String decisionTreeId, C context) {
         executeDecisionTree(decisionTreeId, context)
                 .subscribeOn(Schedulers.boundedElastic())
                 .doOnError(error -> logger.error("Error occurred while executing decision tree", error))
@@ -51,7 +51,7 @@ public class Moira {
      * @param context        the context to be passed to the decision nodes
      * @return a Mono that completes when the execution of the decision tree is finished
      */
-    public <C> Mono<Void> run(String decisionTreeId, C context) {
+    public <C> Mono<Void> decide(String decisionTreeId, C context) {
         return executeDecisionTree(decisionTreeId, context);
     }
 
@@ -69,12 +69,12 @@ public class Moira {
         if (context == null) {
             throw new IllegalArgumentException("context cannot be null");
         }
-        if(isHotReload){
+        if (isHotReload) {
             var config = MoiraConfig.getInstance();
             this.decisionTreeRegistry = config.decisionTreeRegistry();
         }
 
-        DecisionTree decisionTree = decisionTreeRegistry.get(new DecisionTreeId(decisionTreeId))
+        var decisionTree = decisionTreeRegistry.get(new DecisionTreeId(decisionTreeId))
                 .orElseThrow(() -> new IllegalArgumentException(
                         String.format("Decision tree not found: %s with context type: %s",
                                 decisionTreeId,

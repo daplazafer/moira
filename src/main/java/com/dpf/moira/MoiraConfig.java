@@ -1,10 +1,6 @@
 package com.dpf.moira;
 
-import com.dpf.moira.entity.DecisionNodeResult;
-import com.dpf.moira.entity.DecisionTree;
-import com.dpf.moira.entity.DecisionTreeId;
-import com.dpf.moira.entity.NodeId;
-import com.dpf.moira.entity.Transitions;
+import com.dpf.moira.entity.*;
 import com.dpf.moira.properties.MoiraProperties;
 import com.dpf.moira.properties.PropertiesLoader;
 import com.dpf.moira.yaml.DecisionTreeYml;
@@ -18,9 +14,10 @@ import org.yaml.snakeyaml.Yaml;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.*;
 import java.util.stream.Collectors;
 
 class MoiraConfig {
@@ -32,10 +29,7 @@ class MoiraConfig {
     private static MoiraConfig INSTANCE;
 
     private final MoiraProperties properties;
-
-    private MoiraConfig() {
-        this.properties = new PropertiesLoader(PROPERTIES_FILE).loadProperties(MoiraProperties.class);
-    }
+    private final Map<String, String> fileHashes;
 
     public static MoiraConfig getInstance() {
         if (INSTANCE == null) {
@@ -44,7 +38,12 @@ class MoiraConfig {
         return INSTANCE;
     }
 
-    MoiraProperties getProperties(){
+    private MoiraConfig() {
+        this.properties = new PropertiesLoader(PROPERTIES_FILE).loadProperties(MoiraProperties.class);
+        this.fileHashes = new HashMap<>();
+    }
+
+    MoiraProperties getProperties() {
         return this.properties;
     }
 
@@ -53,23 +52,28 @@ class MoiraConfig {
     }
 
     DecisionTreeRegistry decisionTreeRegistry() {
-
         List<DecisionTreeYml> decisionTrees = new ArrayList<>();
 
         ResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
-
         String locationPattern = "classpath:" + this.properties.getYamlFilesPath() + "/*.yml";
-
         Yaml yaml = new Yaml(new LoaderOptions());
 
         try {
             Resource[] resources = resolver.getResources(locationPattern);
 
             for (Resource resource : resources) {
-                try (InputStream inputStream = resource.getInputStream()) {
-                    decisionTrees.add(yaml.loadAs(inputStream, DecisionTreeYml.class));
-                } catch (Exception e) {
-                    logger.error("Failed to load YAML file {} ", resource.getFilename(), e);
+                var filePath = resource.getFilename();
+                if (filePath != null) {
+                    var path = Paths.get(resource.getURI());
+                    var fileHash = computeFileHash(path);
+                    if (!fileHash.equals(fileHashes.get(filePath))) {
+                        fileHashes.put(filePath, fileHash);
+                        try (InputStream inputStream = resource.getInputStream()) {
+                            decisionTrees.add(yaml.loadAs(inputStream, DecisionTreeYml.class));
+                        } catch (Exception e) {
+                            logger.error("Failed to load YAML file {} ", filePath, e);
+                        }
+                    }
                 }
             }
         } catch (IOException e) {
@@ -78,7 +82,7 @@ class MoiraConfig {
 
         return new DecisionTreeRegistry(decisionTrees.stream()
                 .map(this::mapDecisionTree)
-                .toList());
+                .collect(Collectors.toList()));
     }
 
     private DecisionTree mapDecisionTree(DecisionTreeYml decisionTreeYml) {
@@ -95,5 +99,8 @@ class MoiraConfig {
         return new DecisionTree(decisionTreeId, start, transitionsByNode);
     }
 
-}
+    private String computeFileHash(Path filePath) throws IOException {
+        return Files.readString(filePath).hashCode() + "";
+    }
 
+}
