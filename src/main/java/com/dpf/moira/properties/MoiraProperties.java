@@ -21,4 +21,5 @@ public class MoiraProperties {
     public void setHotReloadMode(boolean hotReloadMode) {
         this.hotReloadMode = hotReloadMode;
     }
+
 }

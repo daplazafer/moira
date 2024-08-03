@@ -24,7 +24,7 @@ Add the following dependency to your `pom.xml`:
 <dependency>
     <groupId>com.github.daplazafer</groupId>
     <artifactId>moira</artifactId>
-    <version>0.2.0</version>
+    <version>0.2.3</version>
 </dependency>
 ```
 
@@ -34,7 +34,7 @@ Add the following line to your build.gradle:
 
 ```groovy
 dependencies {
-    implementation 'com.dpf.moira:moira:0.2.0'
+    implementation 'com.dpf.moira:moira:0.2.3'
 }
 ```
 
