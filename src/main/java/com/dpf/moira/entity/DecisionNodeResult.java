@@ -1,4 +1,14 @@
 package com.dpf.moira.entity;
 
-public record DecisionNodeResult(String value) {
+public class DecisionNodeResult {
+
+    private final String value;
+
+    public DecisionNodeResult(final String value) {
+        this.value = value;
+    }
+
+    public String getValue() {
+        return value;
+    }
 }

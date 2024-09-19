@@ -13,7 +13,10 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Executes workflows.
@@ -44,10 +47,10 @@ public final class Moira {
     }
 
     private WorkFlowRegistry getWorkFlowRegistry() {
-        var location = this.properties.getWorkflowFilesPath();
-        var workflows = resourceLoader.loadWorkflows(location).stream()
+        String location = this.properties.getWorkflowFilesPath();
+        List<Workflow> workflows = resourceLoader.loadWorkflows(location).stream()
                 .map(WorkFlowYmlMapper::toEntity)
-                .toList();
+                .collect(Collectors.toList());
         return new WorkFlowRegistry(workflows);
     }
 
@@ -93,17 +96,17 @@ public final class Moira {
             this.workFlowRegistry = this.getWorkFlowRegistry();
         }
 
-        var decisionTree = workFlowRegistry.get(new WorkflowId(workflow))
+        Workflow decisionTree = workFlowRegistry.get(new WorkflowId(workflow))
                 .orElseThrow(() -> new IllegalArgumentException(
                         String.format("Workflow '%s' not found for scenario: %s",
                                 workflow,
                                 scenario.getClass().getName())
                 ));
 
-        var executionId = generateExecutionId();
+        String executionId = generateExecutionId();
 
         logger.debug("[{}] Starting execution of {}", executionId, workflow);
-        return executeNode(decisionTree.start(), decisionTree, new Scenario<>(executionId, scenario));
+        return executeNode(decisionTree.getStart(), decisionTree, new Scenario<>(executionId, scenario));
     }
 
     private static String generateExecutionId() {
@@ -116,17 +119,17 @@ public final class Moira {
             Node<S, ?> node = (Node<S, ?>) nodeRegistry.get(nodeId, scenario.get().getClass())
                     .orElseThrow(() -> new IllegalArgumentException(
                             String.format("Node not found: %s for scenario: %s",
-                                    nodeId.value(),
+                                    nodeId.getValue(),
                                     scenario.getClass().getName())));
 
-            var nodeIdValue = this.getNodeId(node);
-            var nodeDescription = this.getNodeDescription(node);
+            String nodeIdValue = this.getNodeId(node);
+            String nodeDescription = this.getNodeDescription(node);
 
             logger.debug("[{}] Executing <{}> ({}) with scenario: {}", scenario.getExecutionId(), nodeIdValue, nodeDescription, scenario.get());
 
-            var result = node.execute(scenario);
+            Enum<?> result = node.execute(scenario);
 
-            var nodeTransitions = workFlow.transitionsByNode().get(nodeId).transitions();
+            Map<DecisionNodeResult, NodeId> nodeTransitions = workFlow.getTransitionsByNode().get(nodeId).getTransitions();
             if (nodeTransitions.isEmpty()) {
                 logger.debug("[{}] <{}> has ended execution successfully with scenario: {}", scenario.getExecutionId(), nodeIdValue, scenario.get());
                 return Mono.empty();
@@ -134,28 +137,28 @@ public final class Moira {
 
             logger.debug("[{}] <{}> decided result: {}", scenario.getExecutionId(), nodeIdValue, result);
 
-            var nextNodeId = nodeTransitions.get(new DecisionNodeResult(result.name()));
+            NodeId nextNodeId = nodeTransitions.get(new DecisionNodeResult(result.name()));
             if (nextNodeId == null) {
                 logger.error("[{}] No transition found for result: {}. Ending execution with error.", scenario.getExecutionId(), result);
                 throw new RuntimeException(String.format("No transition found for result %s in %s during execution %s", result, nodeIdValue, scenario.getExecutionId()));
             }
 
-            logger.debug("[{}] Transitioning to next node: <{}>", scenario.getExecutionId(), nextNodeId.value());
+            logger.debug("[{}] Transitioning to next node: <{}>", scenario.getExecutionId(), nextNodeId.getValue());
             return executeNode(nextNodeId, workFlow, scenario);
         });
     }
 
     private String getNodeId(Node<?, ?> node) {
-        var nodeClass = node.getClass();
-        var decision = nodeClass.getAnnotation(Decision.class);
+        Class<?> nodeClass = node.getClass();
+        Decision decision = nodeClass.getAnnotation(Decision.class);
         return (decision != null)
                 ? decision.id()
                 : nodeClass.getSimpleName();
     }
 
     private String getNodeDescription(Node<?, ?> node) {
-        var nodeClass = node.getClass();
-        var decision = nodeClass.getAnnotation(Decision.class);
+        Class<?> nodeClass = node.getClass();
+        Decision decision = nodeClass.getAnnotation(Decision.class);
         return (decision != null && !decision.description().isBlank())
                 ? decision.description()
                 : getNodeId(node);

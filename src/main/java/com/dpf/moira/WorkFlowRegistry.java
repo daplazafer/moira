@@ -15,7 +15,7 @@ class WorkFlowRegistry {
 
     WorkFlowRegistry(Collection<Workflow> workflows) {
         decisionTreeRegistryMap = workflows.stream()
-                .collect(Collectors.toUnmodifiableMap(Workflow::id, Function.identity()));
+                .collect(Collectors.toUnmodifiableMap(Workflow::getId, Function.identity()));
     }
 
     Optional<Workflow> get(WorkflowId workFlowId) {

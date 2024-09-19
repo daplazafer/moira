@@ -12,8 +12,7 @@ decision nodes asynchronously and provides a straightforward interface for handl
 
 ## Requirements
 
-- **Java**: 17 or higher
-- **Maven** or **Gradle** for project build
+- **Java**: 11 or higher
 
 ## Maven dependency
 
@@ -22,12 +21,10 @@ First add jitpack.io repositories to your `pom.xml`:
 ```xml
 
 <repositories>
-    ...
     <repository>
         <id>jitpack.io</id>
         <url>https://jitpack.io</url>
     </repository>
-    ...
 </repositories>
 ```
 
@@ -36,11 +33,13 @@ Then add the following dependency to your `pom.xml`:
 ```xml
 
 <dependencies>
+    
     <dependency>
         <groupId>com.github.daplazafer</groupId>
         <artifactId>moira</artifactId>
         <version>1.0.0</version>
     </dependency>
+    
 </dependencies>
 ```
 

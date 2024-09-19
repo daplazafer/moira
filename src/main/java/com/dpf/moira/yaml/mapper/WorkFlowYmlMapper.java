@@ -3,14 +3,15 @@ package com.dpf.moira.yaml.mapper;
 import com.dpf.moira.entity.*;
 import com.dpf.moira.yaml.WorkFlowYml;
 
+import java.util.Map;
 import java.util.stream.Collectors;
 
 public class WorkFlowYmlMapper {
 
     public static Workflow toEntity(WorkFlowYml yml) {
-        var decisionTreeId = new WorkflowId(yml.getId());
-        var start = new NodeId(yml.getStart());
-        var transitionsByNode = yml.getNodes().stream()
+        WorkflowId decisionTreeId = new WorkflowId(yml.getId());
+        NodeId start = new NodeId(yml.getStart());
+        Map<NodeId, Transitions> transitionsByNode = yml.getNodes().stream()
                 .collect(Collectors.toMap(
                         node -> new NodeId(node.getId()),
                         node -> new Transitions(
