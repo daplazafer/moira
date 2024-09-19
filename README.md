@@ -1,6 +1,7 @@
 # Moira Library
 
-Moira is a library for managing and executing workflows reactively in Java applications. It uses Reactor to execute decision nodes asynchronously and provides a straightforward interface for handling complex workflows.
+Moira is a library for managing and executing workflows reactively in Java applications. It uses Reactor to execute
+decision nodes asynchronously and provides a straightforward interface for handling complex workflows.
 
 ## Features
 
@@ -14,17 +15,12 @@ Moira is a library for managing and executing workflows reactively in Java appli
 - **Java**: 17 or higher
 - **Maven** or **Gradle** for project build
 
-## Example with SpringBoot
-
-For a practical example of how to use this library, check out my [dop-moira-spring-example repository](https://github.com/daplazafer/dop-moira-spring-example).
-
-## Installation
-
-### Using Maven
+## Maven dependency
 
 First add jitpack.io repositories to your `pom.xml`:
 
 ```xml
+
 <repositories>
     ...
     <repository>
@@ -38,38 +34,23 @@ First add jitpack.io repositories to your `pom.xml`:
 Then add the following dependency to your `pom.xml`:
 
 ```xml
+
 <dependencies>
-    ...
     <dependency>
         <groupId>com.github.daplazafer</groupId>
         <artifactId>moira</artifactId>
-        <version>0.3.0</version>
+        <version>1.0.0</version>
     </dependency>
-    ...
 </dependencies>
 ```
 
-### Using Gradle
-
-Add the following lines to your build.gradle:
-
-```groovy
-dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-    repositories {
-        mavenCentral()
-        maven { url 'https://jitpack.io' }
-    }
-}
-```
-
-```groovy
-dependencies {
-    implementation 'com.dpf.moira:moira:0.3.0'
-}
-```
-
 ## Usage
+
+For a practical example of how to use this library, check out
+my [dop-moira-spring-example repository](https://github.com/daplazafer/dop-moira-spring-example) for further info.
+
+
+![Example Moira execution](doc/workflow.png)
 
 ### Configuring Moira library
 
@@ -82,12 +63,13 @@ hotReloadMode=false
 
 ### Configuring Nodes
 
-Annotate your node classes with `@Decision` to define id and description and extend Node class. You can use whatever class you want to work as a scenario.
+Annotate your node classes with `@Decision` to define id and description and extend Node class. You can use whatever
+class you want to work as a scenario.
 
 My advice of managing Node responses is the following:
 
 ```java
-import com.dpf.example.moira.dop.node.IsCarRunningNode.Result;
+import com.dpf.example.dop.node.IsCarRunningNode.Result;
 
 import static com.dpf.example.dop.node.IsCarRunningNode.Result.RUNNING;
 import static com.dpf.example.dop.node.IsCarRunningNode.Result.STOPPED;
@@ -101,15 +83,39 @@ public class IsCarRunningNode extends Node<Car, Result> {
 
     @Override
     public Result execute(Scenario<Car> scenario) {
-        return scenario.get().getSpeed() > 0 ? RUNNING: STOPPED;
+        return scenario.get().getSpeed() > 0 ? RUNNING : STOPPED;
     }
 }
 
 ```
 
+Example scenario:
+
+```java
+package com.dpf.example.dop.scenario;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.ToString;
+
+@Getter
+@AllArgsConstructor
+@ToString
+public class Car {
+
+    private int speed;
+
+    private int brakeForce;
+
+    public void brake() {
+        this.speed -= this.brakeForce;
+    }
+}
+```
+
 ### Configuring Workflows
 
-Create a yml file and place it into the directory configured with `workflowFilesPath` variable. 
+Create a yml file and place it into the directory configured with `workflowFilesPath` variable.
 
 ```yml
 id: car
@@ -146,13 +152,13 @@ import com.dpf.example.dop.scenario.Car;
 public class Application {
 
     public static void main(String[] args) {
-        
+
         Moira moira = new Moira(List.of(
-                new IsCarRunningNode(), 
-                new BrakeNode(), 
-                new IsCarOverMaximumSpeedNode(), 
+                new IsCarRunningNode(),
+                new BrakeNode(),
+                new IsCarOverMaximumSpeedNode(),
                 new TerminalNode()));
-        
+
         Car carScenario = new Car(120);
 
         moira.decideAsync("carWorkflow", carScenario);
@@ -160,21 +166,38 @@ public class Application {
 }
 ```
 
+It is also an alternative with **Spring** annotating all `@Decision` also with `@Component`. Then you can configure a `@Bean`:
+
+```java
+package com.dpf.example.dop;
+
+import com.dpf.moira.Moira;
+import com.dpf.moira.Node;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+import java.util.Collection;
+
+@Configuration
+public class MoiraConfig {
+
+    @Bean
+    @Autowired
+    public Moira createMoira(Collection<Node<?, ?>> nodes){
+        return new Moira(nodes);
+    }
+
+}
+```
+
 ### Logging
 
-Execution logs are recorded using SLF4J. Make sure to configure your logging system to view the details. To debug Moira executions:
+Execution logs are recorded using SLF4J. Make sure to configure your logging system to view the details. To debug Moira
+executions:
 
 ```properties
 logging.level.com.dpf.moira.Moira=DEBUG
-```
-
-### Building
-
-To build the library use Maven:
-
-#### Maven
-```bash
-mvn clean package
 ```
 
 ## Contributing
@@ -182,6 +205,7 @@ mvn clean package
 Contributions are welcome. Please follow these steps to contribute:
 
 Fork the repository.
+
 - Create a new branch `git checkout -b feature-branch`.
 - Make your changes and commit `git commit -am 'Add new feature`.
 - Push your changes `git push origin feature-branch`.
